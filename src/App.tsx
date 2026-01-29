@@ -30,7 +30,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<CustomerLogin />} />
             <Route path="/login/admin" element={<AdminLogin />} />
             <Route path="/login/customer" element={<CustomerLogin />} />
 
