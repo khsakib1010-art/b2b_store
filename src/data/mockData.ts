@@ -1,0 +1,157 @@
+import { Product, Order, User } from '@/types';
+
+export const mockProducts: Product[] = [
+  {
+    id: '1',
+    name: 'Classic Cotton T-Shirt',
+    styleNumber: 'TS-001',
+    description: 'Premium quality cotton t-shirt for everyday wear',
+    colors: ['White', 'Black', 'Navy', 'Gray', 'Red'],
+    sizes: ['XS', 'S', 'M', 'L', 'XL', '2XL'],
+    sizesInNumber: [41, 42, 44, 46, 48, 50],
+    price: 12.99,
+    createdAt: new Date('2024-01-15'),
+  },
+  {
+    id: '2',
+    name: 'Performance Polo Shirt',
+    styleNumber: 'PL-002',
+    description: 'Moisture-wicking polo for professional settings',
+    colors: ['White', 'Navy', 'Royal Blue', 'Black'],
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    sizesInNumber: [41, 42, 44, 46, 48, 50],
+    price: 24.99,
+    createdAt: new Date('2024-01-20'),
+  },
+  {
+    id: '3',
+    name: 'Heavyweight Hoodie',
+    styleNumber: 'HD-003',
+    description: 'Warm fleece hoodie with front pocket',
+    colors: ['Charcoal', 'Black', 'Navy', 'Burgundy', 'Forest Green'],
+    sizes: ['S', 'M', 'L', 'XL', '2XL', '3XL'],
+    sizesInNumber: [41, 42, 44, 46, 48, 50],
+    price: 34.99,
+    createdAt: new Date('2024-02-01'),
+  },
+  {
+    id: '4',
+    name: 'Athletic Shorts',
+    styleNumber: 'SH-004',
+    description: 'Lightweight shorts with mesh lining',
+    colors: ['Black', 'Navy', 'Gray', 'Royal Blue'],
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    sizesInNumber: [41, 42, 44, 46, 48, 50],
+    price: 18.99,
+    createdAt: new Date('2024-02-10'),
+  },
+  {
+    id: '5',
+    name: 'Workwear Jacket',
+    styleNumber: 'JK-005',
+    description: 'Durable work jacket with multiple pockets',
+    colors: ['Black', 'Navy', 'Khaki', 'Olive'],
+    sizes: ['S', 'M', 'L', 'XL', '2XL', '3XL'],
+    sizesInNumber: [41, 42, 44, 46, 48, 50],
+    price: 54.99,
+    createdAt: new Date('2024-02-15'),
+  },
+  {
+    id: '6',
+    name: 'Long Sleeve Henley',
+    styleNumber: 'HL-006',
+    description: 'Classic henley with button placket',
+    colors: ['White', 'Charcoal', 'Navy', 'Olive'],
+    sizes: ['S', 'M', 'L', 'XL', '2XL'],
+    sizesInNumber: [41, 42, 44, 46, 48, 50],
+    price: 22.99,
+    createdAt: new Date('2024-03-01'),
+  },
+];
+
+export const mockOrders: Order[] = [
+  {
+    id: 'ORD-001',
+    customerId: 'cust-1',
+    customerName: 'ABC Distributors',
+    customerEmail: 'orders@abcdist.com',
+    poNumber: 'PO-2024-1001',
+    items: [
+      { productId: '1', productName: 'Classic Cotton T-Shirt', styleNumber: 'TS-001', color: 'White', size: 'M', quantity: 50 },
+      { productId: '1', productName: 'Classic Cotton T-Shirt', styleNumber: 'TS-001', color: 'White', size: 'L', quantity: 75 },
+      { productId: '1', productName: 'Classic Cotton T-Shirt', styleNumber: 'TS-001', color: 'Black', size: 'M', quantity: 50 },
+    ],
+    status: 'confirmed',
+    totalItems: 175,
+    createdAt: new Date('2024-03-10'),
+  },
+  {
+    id: 'ORD-002',
+    customerId: 'cust-2',
+    customerName: 'XYZ Sports Gear',
+    customerEmail: 'purchasing@xyzsports.com',
+    poNumber: 'PO-XYZ-5521',
+    items: [
+      { productId: '4', productName: 'Athletic Shorts', styleNumber: 'SH-004', color: 'Black', size: 'M', quantity: 100 },
+      { productId: '4', productName: 'Athletic Shorts', styleNumber: 'SH-004', color: 'Navy', size: 'L', quantity: 100 },
+      { productId: '2', productName: 'Performance Polo Shirt', styleNumber: 'PL-002', color: 'White', size: 'L', quantity: 50 },
+    ],
+    status: 'processing',
+    totalItems: 250,
+    createdAt: new Date('2024-03-12'),
+  },
+  {
+    id: 'ORD-003',
+    customerId: 'cust-3',
+    customerName: 'Uniforms Plus',
+    customerEmail: 'orders@uniformsplus.com',
+    poNumber: 'UP-2024-0312',
+    items: [
+      { productId: '5', productName: 'Workwear Jacket', styleNumber: 'JK-005', color: 'Navy', size: 'L', quantity: 25 },
+      { productId: '5', productName: 'Workwear Jacket', styleNumber: 'JK-005', color: 'Navy', size: 'XL', quantity: 25 },
+    ],
+    status: 'pending',
+    totalItems: 50,
+    createdAt: new Date('2024-03-14'),
+  },
+];
+
+export const mockUsers: User[] = [
+  {
+    id: 'admin-1',
+    email: 'admin@company.com',
+    name: 'John Admin',
+    role: 'admin',
+    createdAt: new Date('2024-01-01'),
+  },
+  {
+    id: 'cust-1',
+    email: 'orders@abcdist.com',
+    name: 'Sarah Johnson',
+    company: 'ABC Distributors',
+    role: 'customer',
+    createdAt: new Date('2024-01-10'),
+  },
+  {
+    id: 'cust-2',
+    email: 'purchasing@xyzsports.com',
+    name: 'Mike Chen',
+    company: 'XYZ Sports Gear',
+    role: 'customer',
+    createdAt: new Date('2024-01-15'),
+  },
+  {
+    id: 'cust-3',
+    email: 'orders@uniformsplus.com',
+    name: 'Emily Davis',
+    company: 'Uniforms Plus',
+    role: 'customer',
+    createdAt: new Date('2024-02-01'),
+  },
+];
+
+// Mock credentials for demo login
+export const mockCredentials = {
+  admin: { email: 'admin@company.com', password: 'admin123' },
+  customer: { email: 'orders@abcdist.com', password: 'customer123' },
+};
