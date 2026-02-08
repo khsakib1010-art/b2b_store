@@ -6,23 +6,36 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Download, Search, Eye, Package } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 const statusColors: Record<string, string> = {
-  pending: 'badge-warning',
-  confirmed: 'badge-primary',
-  processing: 'badge-primary',
-  shipped: 'badge-success',
-  delivered: 'badge-success',
+  pending: 'bg-yellow-100 text-yellow-800',
+  confirmed: 'bg-blue-100 text-blue-800',
+  processing: 'bg-purple-100 text-purple-800',
+  shipped: 'bg-cyan-100 text-cyan-800',
+  delivered: 'bg-green-100 text-green-800',
 };
 
 export default function AdminOrders() {
-  const [orders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  const statusOptions = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'] as const;
+
+  const handleStatusChange = (orderId: string, newStatus: string) => {
+    setOrders(orders.map(order => 
+      order.id === orderId ? { ...order, status: newStatus as Order['status'] } : order
+    ));
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder({ ...selectedOrder, status: newStatus as Order['status'] });
+    }
+    toast.success('Order status updated successfully');
+  };
 
   const filteredOrders = orders.filter(order => 
     order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -113,9 +126,22 @@ export default function AdminOrders() {
                   <TableCell className="font-mono text-sm">{order.poNumber}</TableCell>
                   <TableCell>{order.totalItems}</TableCell>
                   <TableCell>
-                    <Badge className={statusColors[order.status]}>
-                      {order.status}
-                    </Badge>
+                    <Select value={order.status} onValueChange={(newStatus) => handleStatusChange(order.id, newStatus)}>
+                      <SelectTrigger className="w-[140px] border-0 bg-transparent hover:bg-transparent hover:border-0 focus:ring-0">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[order.status]} cursor-pointer`}>
+                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statusOptions.map(status => (
+                          <SelectItem key={status} value={status}>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[status]}`}>
+                              {status.charAt(0).toUpperCase() + status.slice(1)}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {format(order.createdAt, 'MMM dd, yyyy')}
@@ -163,9 +189,22 @@ export default function AdminOrders() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Status</p>
-                  <Badge className={statusColors[selectedOrder.status]}>
-                    {selectedOrder.status}
-                  </Badge>
+                  <Select value={selectedOrder.status} onValueChange={(newStatus) => handleStatusChange(selectedOrder.id, newStatus)}>
+                    <SelectTrigger className="w-[200px] border-0 bg-transparent hover:bg-transparent hover:border-0 focus:ring-0">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[selectedOrder.status]} cursor-pointer`}>
+                        {selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1)}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map(status => (
+                        <SelectItem key={status} value={status}>
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[status]}`}>
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Date</p>

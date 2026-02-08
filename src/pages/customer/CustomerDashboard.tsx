@@ -35,7 +35,7 @@ export default function CustomerDashboard() {
   const [lastPoNumber, setLastPoNumber] = useState('');
 
   if (!isAuthenticated || user?.role !== 'customer') {
-    return <Navigate to="/login/customer" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const filteredProducts = mockProducts.filter(product =>
@@ -268,12 +268,7 @@ export default function CustomerDashboard() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Input
-                              placeholder=''
-                              value={selection?.styleNumber || ''}
-                              onChange={(e) => handleStyleChange(product, e.target.value)}
-                              className="input-field text-sm"
-                            />
+                            <p className="text-sm font-medium">{product.styleNumber}</p>
                           </TableCell>
                           <TableCell>
                             <Select

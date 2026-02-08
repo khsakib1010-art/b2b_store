@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Search, Edit, Users, Building2 } from 'lucide-react';
+import { Plus, Search, Edit, Users, Building2, Share2, Copy, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -17,12 +17,15 @@ export default function AdminCustomers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [shareCredentialsUser, setShareCredentialsUser] = useState<(User & { password?: string }) | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    company: ''
+    company: '',
+    password: ''
   });
 
   const filteredUsers = users.filter(user => 
@@ -33,7 +36,8 @@ export default function AdminCustomers() {
 
   const openAddDialog = () => {
     setEditingUser(null);
-    setFormData({ name: '', email: '', company: '' });
+    const generatedPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-2).toUpperCase();
+    setFormData({ name: '', email: '', company: '', password: generatedPassword });
     setIsDialogOpen(true);
   };
 
@@ -42,9 +46,27 @@ export default function AdminCustomers() {
     setFormData({
       name: user.name,
       email: user.email,
-      company: user.company || ''
+      company: user.company || '',
+      password: ''
     });
     setIsDialogOpen(true);
+  };
+
+  const generatePassword = () => {
+    const newPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-2).toUpperCase();
+    setFormData(prev => ({ ...prev, password: newPassword }));
+    toast.success('New password generated');
+  };
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+    toast.success(`${field} copied to clipboard`);
+  };
+
+  const handleOpenShareCredentials = (user: User) => {
+    setShareCredentialsUser({ ...user, password: formData.password || 'customer123' });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -74,6 +96,8 @@ export default function AdminCustomers() {
         createdAt: new Date()
       };
       setUsers(prev => [...prev, newUser]);
+      // Store password in share credentials state for immediate sharing
+      setShareCredentialsUser({ ...newUser, password: formData.password });
       toast.success('Customer account created successfully');
     }
 
@@ -151,13 +175,23 @@ export default function AdminCustomers() {
                     {format(user.createdAt, 'MMM dd, yyyy')}
                   </TableCell>
                   <TableCell>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => openEditDialog(user)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        title="Share Credentials"
+                        onClick={() => handleOpenShareCredentials(user)}
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => openEditDialog(user)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -219,9 +253,32 @@ export default function AdminCustomers() {
             </div>
 
             {!editingUser && (
-              <div className="p-4 bg-muted/50 rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  The customer will receive login credentials via email. Default password: <span className="font-mono">customer123</span>
+              <div className="space-y-2">
+                <Label htmlFor="password">Login Password</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="password"
+                    type="text"
+                    value={formData.password}
+                    readOnly
+                    className="input-field font-mono text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={generatePassword}
+                    className="flex-shrink-0"
+                  >
+                    Regenerate
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!editingUser && (
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-900">
+                  Customer account created. Share credentials using the Share button in the customer list.
                 </p>
               </div>
             )}
@@ -235,6 +292,90 @@ export default function AdminCustomers() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Credentials Dialog */}
+      <Dialog open={!!shareCredentialsUser} onOpenChange={() => setShareCredentialsUser(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Credentials</DialogTitle>
+          </DialogHeader>
+          {shareCredentialsUser && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Customer Name</Label>
+                  <p className="font-medium">{shareCredentialsUser.name}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Email Address</Label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={shareCredentialsUser.email}
+                      readOnly
+                      className="flex-1 px-3 py-2 border border-border rounded-md font-mono text-sm bg-muted"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(shareCredentialsUser.email, 'Email')}
+                    >
+                      {copiedField === 'Email' ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Password</Label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={shareCredentialsUser.password || 'customer123'}
+                      readOnly
+                      className="flex-1 px-3 py-2 border border-border rounded-md font-mono text-sm bg-muted"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(shareCredentialsUser.password || 'customer123', 'Password')}
+                    >
+                      {copiedField === 'Password' ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                <p className="text-sm text-amber-900">
+                  Share these credentials securely with the customer. They can login at the customer portal.
+                </p>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => {
+                    const credentialText = `Email: ${shareCredentialsUser.email}\nPassword: ${shareCredentialsUser.password || 'customer123'}`;
+                    copyToClipboard(credentialText, 'Credentials');
+                  }}
+                >
+                  Copy All Credentials
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
