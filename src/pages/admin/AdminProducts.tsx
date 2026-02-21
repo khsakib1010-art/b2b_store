@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { mockProducts } from '@/data/mockData';
+import React, { useState, useEffect } from 'react';
+import { fetchProducts, createProduct, updateProduct } from '@/services/api';
 import { Product } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,15 +8,17 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Search, Edit, Package } from 'lucide-react';
+import { Plus, Search, Edit, Package, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 export default function AdminProducts() {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -27,7 +29,23 @@ export default function AdminProducts() {
     price: ''
   });
 
-  const filteredProducts = products.filter(product => 
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  async function loadProducts() {
+    try {
+      const data = await fetchProducts();
+      setProducts(data);
+    } catch (err) {
+      console.error('Failed to load products:', err);
+      toast.error('Failed to load products');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     product.styleNumber.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -50,44 +68,50 @@ export default function AdminProducts() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
 
     const sizesArray = formData.sizes.split(',').map(s => s.trim()).filter(Boolean);
     const colorsArray = formData.colors.split(',').map(c => c.trim()).filter(Boolean);
 
-    if (editingProduct) {
-      // Update existing product
-      setProducts(prev => prev.map(p => 
-        p.id === editingProduct.id 
-          ? {
-              ...p,
-              name: formData.name,
-              styleNumber: formData.styleNumber,
-              sizes: sizesArray,
-              colors: colorsArray,
-              price: parseFloat(formData.price) || undefined
-            }
-          : p
-      ));
-      toast.success('Product updated successfully');
-    } else {
-      // Add new product
-      const newProduct: Product = {
-        id: `prod-${Date.now()}`,
-        name: formData.name,
-        styleNumber: formData.styleNumber,
-        sizes: sizesArray,
-        colors: colorsArray,
-        price: parseFloat(formData.price) || undefined,
-        createdAt: new Date()
-      };
-      setProducts(prev => [...prev, newProduct]);
-      toast.success('Product added successfully');
+    try {
+      if (editingProduct) {
+        const updated = await updateProduct(editingProduct.id, {
+          name: formData.name,
+          styleNumber: formData.styleNumber,
+          sizes: sizesArray,
+          colors: colorsArray,
+          price: parseFloat(formData.price) || undefined,
+        });
+        setProducts(prev => prev.map(p => p.id === editingProduct.id ? updated : p));
+        toast.success('Product updated successfully');
+      } else {
+        const created = await createProduct({
+          name: formData.name,
+          styleNumber: formData.styleNumber,
+          sizes: sizesArray,
+          colors: colorsArray,
+          price: parseFloat(formData.price) || undefined,
+        });
+        setProducts(prev => [created, ...prev]);
+        toast.success('Product added successfully');
+      }
+      setIsDialogOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save product');
+    } finally {
+      setSubmitting(false);
     }
-
-    setIsDialogOpen(false);
   };
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -165,8 +189,8 @@ export default function AdminProducts() {
                     {format(product.createdAt, 'MMM dd, yyyy')}
                   </TableCell>
                   <TableCell>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="icon"
                       onClick={() => openEditDialog(product)}
                     >
@@ -261,8 +285,8 @@ export default function AdminProducts() {
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="btn-primary">
-                {editingProduct ? 'Save Changes' : 'Add Product'}
+              <Button type="submit" className="btn-primary" disabled={submitting}>
+                {submitting ? 'Saving...' : editingProduct ? 'Save Changes' : 'Add Product'}
               </Button>
             </DialogFooter>
           </form>

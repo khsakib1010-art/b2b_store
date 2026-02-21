@@ -1,8 +1,9 @@
-import React from 'react';
-import { mockOrders, mockProducts, mockUsers } from '@/data/mockData';
+import React, { useState, useEffect } from 'react';
+import { fetchDashboardStats, fetchOrders, DashboardStats } from '@/services/api';
+import { Order } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Package, ShoppingCart, Users, TrendingUp, Clock } from 'lucide-react';
+import { Package, ShoppingCart, Users, TrendingUp, Clock, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 const statusColors: Record<string, string> = {
@@ -14,15 +15,41 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AdminDashboard() {
-  const totalOrders = mockOrders.length;
-  const pendingOrders = mockOrders.filter(o => o.status === 'pending').length;
-  const totalProducts = mockProducts.length;
-  const totalCustomers = mockUsers.filter(u => u.role === 'customer').length;
-  const totalItems = mockOrders.reduce((sum, order) => sum + order.totalItems, 0);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const recentOrders = [...mockOrders]
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, 5);
+  useEffect(() => {
+    async function load() {
+      try {
+        const [statsData, ordersData] = await Promise.all([
+          fetchDashboardStats(),
+          fetchOrders(),
+        ]);
+        setStats(statsData);
+        setRecentOrders(ordersData.slice(0, 5));
+      } catch (err) {
+        console.error('Failed to load dashboard:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const totalOrders = stats?.totalOrders ?? 0;
+  const pendingOrders = stats?.pendingOrders ?? 0;
+  const totalProducts = stats?.totalProducts ?? 0;
+  const totalCustomers = stats?.totalCustomers ?? 0;
+  const totalItems = recentOrders.reduce((sum, order) => sum + order.totalItems, 0);
 
   return (
     <div className="p-8">
@@ -102,8 +129,8 @@ export default function AdminDashboard() {
         <CardContent>
           <div className="space-y-4">
             {recentOrders.map(order => (
-              <div 
-                key={order.id} 
+              <div
+                key={order.id}
                 className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
               >
                 <div className="flex items-center gap-4">
@@ -127,6 +154,9 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ))}
+            {recentOrders.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">No orders yet</p>
+            )}
           </div>
         </CardContent>
       </Card>

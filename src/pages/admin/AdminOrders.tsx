@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { mockOrders } from '@/data/mockData';
+import React, { useState, useEffect } from 'react';
+import { fetchOrders, updateOrderStatus, exportOrdersCsv } from '@/services/api';
 import { Order } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Download, Search, Eye, Package } from 'lucide-react';
+import { Download, Search, Eye, Package, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -21,56 +21,66 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AdminOrders() {
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const statusOptions = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'] as const;
 
-  const handleStatusChange = (orderId: string, newStatus: string) => {
-    setOrders(orders.map(order => 
-      order.id === orderId ? { ...order, status: newStatus as Order['status'] } : order
-    ));
-    if (selectedOrder?.id === orderId) {
-      setSelectedOrder({ ...selectedOrder, status: newStatus as Order['status'] });
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  async function loadOrders() {
+    try {
+      const data = await fetchOrders();
+      setOrders(data);
+    } catch (err) {
+      console.error('Failed to load orders:', err);
+      toast.error('Failed to load orders');
+    } finally {
+      setLoading(false);
     }
-    toast.success('Order status updated successfully');
+  }
+
+  const handleStatusChange = async (orderId: string, newStatus: string) => {
+    try {
+      const updated = await updateOrderStatus(orderId, newStatus);
+      setOrders(orders.map(order =>
+        order.id === orderId ? updated : order
+      ));
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(updated);
+      }
+      toast.success('Order status updated successfully');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update status');
+    }
   };
 
-  const filteredOrders = orders.filter(order => 
+  const filteredOrders = orders.filter(order =>
     order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     order.poNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
     order.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const exportToExcel = () => {
-    // Create CSV content
-    const headers = ['Order ID', 'Customer', 'PO Number', 'Items', 'Status', 'Date'];
-    const rows = filteredOrders.map(order => [
-      order.id,
-      order.customerName,
-      order.poNumber,
-      order.totalItems.toString(),
-      order.status,
-      format(order.createdAt, 'yyyy-MM-dd')
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
-
-    // Download
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `orders-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast.success('Orders exported successfully');
+  const handleExport = async () => {
+    try {
+      await exportOrdersCsv();
+      toast.success('Orders exported successfully');
+    } catch (err: any) {
+      toast.error(err.message || 'Export failed');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -79,7 +89,7 @@ export default function AdminOrders() {
           <h1 className="text-2xl font-bold">Orders</h1>
           <p className="text-muted-foreground">Manage and track customer orders</p>
         </div>
-        <Button onClick={exportToExcel} className="btn-primary">
+        <Button onClick={handleExport} className="btn-primary">
           <Download className="w-4 h-4 mr-2" />
           Export to Excel
         </Button>
@@ -147,8 +157,8 @@ export default function AdminOrders() {
                     {format(order.createdAt, 'MMM dd, yyyy')}
                   </TableCell>
                   <TableCell>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="icon"
                       onClick={() => setSelectedOrder(order)}
                     >

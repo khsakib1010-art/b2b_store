@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { mockUsers } from '@/data/mockData';
+import React, { useState, useEffect } from 'react';
+import { fetchCustomers, createCustomer, updateCustomer } from '@/services/api';
 import { User } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,17 +8,19 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Search, Edit, Users, Building2, Share2, Copy, Check } from 'lucide-react';
+import { Plus, Search, Edit, Users, Building2, Share2, Copy, Check, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 export default function AdminCustomers() {
-  const [users, setUsers] = useState<User[]>(mockUsers.filter(u => u.role === 'customer'));
+  const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [shareCredentialsUser, setShareCredentialsUser] = useState<(User & { password?: string }) | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -28,7 +30,23 @@ export default function AdminCustomers() {
     password: ''
   });
 
-  const filteredUsers = users.filter(user => 
+  useEffect(() => {
+    loadCustomers();
+  }, []);
+
+  async function loadCustomers() {
+    try {
+      const data = await fetchCustomers();
+      setUsers(data);
+    } catch (err) {
+      console.error('Failed to load customers:', err);
+      toast.error('Failed to load customers');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.company?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -69,40 +87,45 @@ export default function AdminCustomers() {
     setShareCredentialsUser({ ...user, password: formData.password || 'customer123' });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
 
-    if (editingUser) {
-      // Update existing user
-      setUsers(prev => prev.map(u => 
-        u.id === editingUser.id 
-          ? {
-              ...u,
-              name: formData.name,
-              email: formData.email,
-              company: formData.company || undefined
-            }
-          : u
-      ));
-      toast.success('Customer updated successfully');
-    } else {
-      // Add new user
-      const newUser: User = {
-        id: `cust-${Date.now()}`,
-        name: formData.name,
-        email: formData.email,
-        company: formData.company || undefined,
-        role: 'customer',
-        createdAt: new Date()
-      };
-      setUsers(prev => [...prev, newUser]);
-      // Store password in share credentials state for immediate sharing
-      setShareCredentialsUser({ ...newUser, password: formData.password });
-      toast.success('Customer account created successfully');
+    try {
+      if (editingUser) {
+        const updated = await updateCustomer(editingUser.id, {
+          name: formData.name,
+          email: formData.email,
+          company: formData.company || undefined,
+        });
+        setUsers(prev => prev.map(u => u.id === editingUser.id ? updated : u));
+        toast.success('Customer updated successfully');
+      } else {
+        const created = await createCustomer({
+          name: formData.name,
+          email: formData.email,
+          company: formData.company || undefined,
+          password: formData.password,
+        });
+        setUsers(prev => [...prev, created]);
+        setShareCredentialsUser({ ...created, password: formData.password });
+        toast.success('Customer account created successfully');
+      }
+      setIsDialogOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save customer');
+    } finally {
+      setSubmitting(false);
     }
-
-    setIsDialogOpen(false);
   };
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -176,16 +199,16 @@ export default function AdminCustomers() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="icon"
                         title="Share Credentials"
                         onClick={() => handleOpenShareCredentials(user)}
                       >
                         <Share2 className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="icon"
                         onClick={() => openEditDialog(user)}
                       >
@@ -287,8 +310,8 @@ export default function AdminCustomers() {
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="btn-primary">
-                {editingUser ? 'Save Changes' : 'Create Account'}
+              <Button type="submit" className="btn-primary" disabled={submitting}>
+                {submitting ? 'Saving...' : editingUser ? 'Save Changes' : 'Create Account'}
               </Button>
             </DialogFooter>
           </form>

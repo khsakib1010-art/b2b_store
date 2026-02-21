@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockProducts } from '@/data/mockData';
+import { fetchProducts, createOrder } from '@/services/api';
 import { Product, OrderItem } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { LogOut, Search, Package, Send, CheckCircle, AlertCircle, ShoppingCart, Trash2, X } from 'lucide-react';
+import { LogOut, Search, Package, Send, CheckCircle, AlertCircle, ShoppingCart, Trash2, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ProductSelection {
@@ -25,6 +25,8 @@ interface ProductSelection {
 
 export default function CustomerDashboard() {
   const { user, logout, isAuthenticated } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selections, setSelections] = useState<Record<string, ProductSelection>>({});
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -34,11 +36,28 @@ export default function CustomerDashboard() {
   const [lastOrderId, setLastOrderId] = useState('');
   const [lastPoNumber, setLastPoNumber] = useState('');
 
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await fetchProducts();
+        setProducts(data);
+      } catch (err) {
+        console.error('Failed to load products:', err);
+        toast.error('Failed to load products');
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (isAuthenticated && user?.role === 'customer') {
+      load();
+    }
+  }, [isAuthenticated, user]);
+
   if (!isAuthenticated || user?.role !== 'customer') {
     return <Navigate to="/" replace />;
   }
 
-  const filteredProducts = mockProducts.filter(product =>
+  const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     product.styleNumber.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -117,7 +136,7 @@ export default function CustomerDashboard() {
   const getOrderItems = (): OrderItem[] => {
     const items: OrderItem[] = [];
     Object.values(selections).forEach(selection => {
-      const product = mockProducts.find(p => p.id === selection.productId);
+      const product = products.find(p => p.id === selection.productId);
       const styleNumber = selection.styleNumber || product?.styleNumber || '';
       Object.entries(selection.quantities).forEach(([size, qty]) => {
         if (qty > 0) {
@@ -156,20 +175,26 @@ export default function CustomerDashboard() {
     }
 
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      const order = await createOrder({
+        poNumber: poNumber.trim(),
+        items: getOrderItems(),
+      });
+      setLastOrderId(order.id);
+      setLastPoNumber(poNumber);
 
-    const orderId = `ORD-${Date.now().toString().slice(-6)}`;
-    setLastOrderId(orderId);
-    setLastPoNumber(poNumber);
+      // Reset
+      setSelections({});
+      setPoNumber('');
+      setPoError('');
+      setShowConfirmation(true);
 
-    // Reset
-    setSelections({});
-    setPoNumber('');
-    setPoError('');
-    setShowConfirmation(true);
-    setIsSubmitting(false);
-
-    toast.success('Order placed successfully!');
+      toast.success('Order placed successfully!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to place order');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getColorStyle = (color: string) => {
@@ -188,6 +213,29 @@ export default function CustomerDashboard() {
     };
     return colorMap[color.toLowerCase()] || '#94a3b8';
   };
+
+  if (loading) {
+    return (
+      <div className="page-container">
+        <header className="bg-card border-b sticky top-0 z-50">
+          <div className="content-container py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-accent/10 rounded-xl flex items-center justify-center">
+                <Package className="w-5 h-5 text-accent" />
+              </div>
+              <div>
+                <h1 className="font-semibold text-lg">B2B Store</h1>
+                <p className="text-xs text-muted-foreground">{user?.company || user?.name}</p>
+              </div>
+            </div>
+          </div>
+        </header>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-container">
@@ -263,7 +311,6 @@ export default function CustomerDashboard() {
                               </div>
                               <div>
                                 <p className="font-medium">{product.name}</p>
-                                {/* <p className="text-sm text-muted-foreground">{product.styleNumber}</p> */}
                               </div>
                             </div>
                           </TableCell>
@@ -366,7 +413,7 @@ export default function CustomerDashboard() {
                       .filter(sel => Object.values(sel.quantities).some(q => q > 0))
                       .map((selection) => {
                         const productQty = Object.values(selection.quantities).reduce((s, q) => s + q, 0);
-                        const product = mockProducts.find(p => p.id === selection.productId);
+                        const product = products.find(p => p.id === selection.productId);
                         const displayStyle = selection.styleNumber || product?.styleNumber || '';
                         return (
                           <div key={selection.productId} className="p-4 border-b last:border-b-0">
