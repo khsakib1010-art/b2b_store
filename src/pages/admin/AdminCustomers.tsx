@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { fetchCustomers, createCustomer, updateCustomer } from '@/services/api';
-import { User } from '@/types';
+import { fetchCustomers, createCustomer, updateCustomer, fetchProducts, fetchCustomerProductIds, setCustomerProducts } from '@/services/api';
+import { User, Product } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Search, Edit, Users, Building2, Share2, Copy, Check, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit, Users, Building2, Share2, Copy, Check, Loader2, Package, LayoutGrid } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -21,6 +21,13 @@ export default function AdminCustomers() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // Product access state
+  const [productAccessUser, setProductAccessUser] = useState<User | null>(null);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [productAccessLoading, setProductAccessLoading] = useState(false);
+  const [productAccessSaving, setProductAccessSaving] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -68,6 +75,57 @@ export default function AdminCustomers() {
       password: ''
     });
     setIsDialogOpen(true);
+  };
+
+  const openProductAccessDialog = async (user: User) => {
+    setProductAccessUser(user);
+    setProductAccessLoading(true);
+    try {
+      const [products, assignedIds] = await Promise.all([
+        fetchProducts(),
+        fetchCustomerProductIds(user.id),
+      ]);
+      setAllProducts(products);
+      setSelectedProductIds(new Set(assignedIds));
+    } catch (err) {
+      toast.error('Failed to load product access data');
+    } finally {
+      setProductAccessLoading(false);
+    }
+  };
+
+  const toggleProduct = (productId: string) => {
+    setSelectedProductIds(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedProductIds.size === allProducts.length) {
+      setSelectedProductIds(new Set());
+    } else {
+      setSelectedProductIds(new Set(allProducts.map(p => p.id)));
+    }
+  };
+
+  const handleSaveProductAccess = async () => {
+    if (!productAccessUser) return;
+    setProductAccessSaving(true);
+    try {
+      await setCustomerProducts(productAccessUser.id, Array.from(selectedProductIds));
+      toast.success(`Product access updated for ${productAccessUser.name}`);
+      setProductAccessUser(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update product access');
+    } finally {
+      setProductAccessSaving(false);
+    }
   };
 
   const generatePassword = () => {
@@ -164,7 +222,7 @@ export default function AdminCustomers() {
                 <TableHead>Email</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="w-28"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -198,7 +256,15 @@ export default function AdminCustomers() {
                     {format(user.createdAt, 'MMM dd, yyyy')}
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Manage Product Access"
+                        onClick={() => openProductAccessDialog(user)}
+                      >
+                        <LayoutGrid className="w-4 h-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -229,6 +295,84 @@ export default function AdminCustomers() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Product Access Dialog ── */}
+      <Dialog open={!!productAccessUser} onOpenChange={(open) => { if (!open) setProductAccessUser(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Product Access — {productAccessUser?.name}
+            </DialogTitle>
+          </DialogHeader>
+
+          {productAccessLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {selectedProductIds.size} of {allProducts.length} products selected
+                  </p>
+                  <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                    {selectedProductIds.size === allProducts.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                </div>
+
+                <div className="border rounded-lg divide-y max-h-80 overflow-y-auto">
+                  {allProducts.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Package className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">No products available</p>
+                    </div>
+                  ) : (
+                    allProducts.map(product => {
+                      const checked = selectedProductIds.has(product.id);
+                      return (
+                        <label
+                          key={product.id}
+                          className="flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleProduct(product.id)}
+                            className="w-4 h-4 accent-primary"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{product.name}</p>
+                            <p className="text-xs text-muted-foreground font-mono">{product.styleNumber}</p>
+                          </div>
+                          {checked && (
+                            <span className="text-xs text-primary font-medium">Visible</span>
+                          )}
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <p className="text-xs text-amber-800">
+                    Only checked products will appear in this customer's catalog. If no products are selected, the customer will see an empty catalog.
+                  </p>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setProductAccessUser(null)}>
+                  Cancel
+                </Button>
+                <Button className="btn-primary" onClick={handleSaveProductAccess} disabled={productAccessSaving}>
+                  {productAccessSaving ? 'Saving...' : 'Save Access'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Add/Edit Customer Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

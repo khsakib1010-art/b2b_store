@@ -287,6 +287,17 @@ export async function deleteCustomer(id: string): Promise<void> {
   await apiFetch(`/customers/${id}`, { method: 'DELETE' });
 }
 
+export async function fetchCustomerProductIds(customerId: string): Promise<string[]> {
+  return apiFetch<string[]>(`/customers/${customerId}/products`);
+}
+
+export async function setCustomerProducts(customerId: string, productIds: string[]): Promise<void> {
+  await apiFetch(`/customers/${customerId}/products`, {
+    method: 'PUT',
+    body: JSON.stringify({ productIds }),
+  });
+}
+
 function mapUser(u: any): User {
   return {
     id: u.id,
