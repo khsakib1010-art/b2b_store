@@ -44,7 +44,7 @@ const Login = () => {
           <div className="p-1.5 bg-blue-600 rounded-lg">
             <Building2 className="w-5 h-5 text-white" />
           </div>
-          <span>CORE<span className="text-gray-900">APP</span></span>
+          <span>ash786</span>
         </div>
         
         <div className="flex gap-3">
