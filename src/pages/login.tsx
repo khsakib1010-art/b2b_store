@@ -73,8 +73,8 @@ const Login = () => {
           <div className="hidden md:block relative w-full h-full bg-slate-100">
             <img
               src={role === 'admin' 
-                ? "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1200" 
-                : "https://images.unsplash.com/photo-1556742049-13ef736c9020?auto=format&fit=crop&q=80&w=1200"}
+                ? "./bg.png"
+                : "./bg.png"}
               alt="Login Background"
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
             />
